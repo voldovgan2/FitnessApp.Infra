@@ -1,0 +1,2 @@
+docker-compose build --build-arg NUGET_PAT="NUGET_PAT VALUE" 
+docker-compose --env-file ../../FitnessApp.Infra/Docker/.env up

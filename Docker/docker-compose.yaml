@@ -1,0 +1,90 @@
+services:
+
+  gateway-api:
+    build:
+      context: ../../FitnessApp.ApiGateway
+      dockerfile: Dockerfile
+    # image: fitnessappacc/fitness-app-gateway-api:latest
+    environment:
+      Apis__Settings__Url: "http://settings-api-service:8000"
+      ApiAuthenticationSettings__Address: "http://identity-api-service:5000"
+      OpenIdConnect__Authority: "http://identity-api"
+      ClientAuthenticationSettings__Issuer: "http://identity-api-service:5000"
+      ServiceBus__Url: "${ServiceBus__Url}"
+      ASPNETCORE_HTTP_PORTS: "20000"
+    ports:
+      - 20000:20000
+    depends_on:
+      - settings-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-H", "http://gateway-api:20000/api/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      
+  settings-api:
+    # build:
+    #   context: .
+    #   dockerfile: IAM.DockerFile
+    #   args:
+    #     - IMPORT_REALM=import
+    image: fitnessappacc/fitness-app-settings-api:latest
+    environment:
+      OpenIdConnect__Issuer: "http://identity-api-service:5000"
+      VaultClient__Address: "http://vault-service:8200"
+      VaultClient__Token: "dev-only-token"
+      ASPNETCORE_HTTP_PORTS: "8000"
+    ports:
+      - 8000:8000
+    depends_on:
+      - mongo
+      - nats
+      - minio
+      - redis
+      - vault
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-H", "http://settings-api:8000/api/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      
+  mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+
+  nats:
+    image: nats
+    ports:
+      - "4222:4222"
+
+  minio:
+    image: minio/minio
+    command: server --console-address ":9001" /data
+    ports:
+      - "9090"
+      - "9091"
+    environment:
+      MINIO_ROOT_USER: "MINIO_USER"
+      MINIO_ROOT_PASSWORD: "MINIO_PASSWORD"
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - minio:/data
+
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+      
+  vault:
+    image: hashicorp/vault
+    ports:
+      - 8200:8200
+
+volumes:
+  minio:
+  nats-data:
